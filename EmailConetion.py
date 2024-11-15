@@ -1,34 +1,39 @@
-import os.path
+import os
 import imaplib
 import email
 from email.header import decode_header
 import base64
-import json
+from dotenv import load_dotenv
 import google.auth
-
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-# If modifying these SCOPES, delete the file token.json.
+# Cargar las variables de entorno desde el archivo .env
+load_dotenv()
+
+# Obtener las credenciales de las variables de entorno
+CLIENT_ID = os.getenv('CLIENT_ID')
+CLIENT_SECRET = os.getenv('CLIENT_SECRET')
+
+# Si modificas estos SCOPES, elimina el archivo token.json.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
 def authenticate_gmail():
     creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first time.
+    # El archivo token.json almacena los tokens de acceso y actualización del usuario,
+    # y se crea automáticamente cuando el flujo de autorización se completa por primera vez.
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
+    # Si no hay credenciales (válidas) disponibles, permite que el usuario inicie sesión.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'Credentials.json', SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
+        # Guarda las credenciales para la próxima ejecución
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
     return creds
@@ -37,12 +42,12 @@ def fetch_emails():
     creds = authenticate_gmail()
     service = build('gmail', 'v1', credentials=creds)
     
-    # Call the Gmail API
+    # Llama a la API de Gmail
     results = service.users().messages().list(userId='me', labelIds=['INBOX'], q='is:unread').execute()
     messages = results.get('messages', [])
     
     if not messages:
-        print('No new messages.')
+        print('No hay mensajes nuevos.')
     else:
         for message in messages:
             msg = service.users().messages().get(userId='me', id=message['id']).execute()
@@ -62,6 +67,6 @@ def fetch_emails():
                     body = part.get('body', {}).get('data')
                     if body:
                         decoded_body = base64.urlsafe_b64decode(body).decode('utf-8')
-                        print(f'Body: {decoded_body}')
-        
+                        print(f'Cuerpo: {decoded_body}')
+
 fetch_emails()
